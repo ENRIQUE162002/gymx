@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Diagnóstico del Gimnasio</title>
+<style>
+:root{--bg:#f5f6f8;--c:#fff;--t:#1b1f24;--m:#5d6670;--a:#d9480f;--b:#dde1e6;--ok:#2b8a3e;--w:#e67700}
+@media(prefers-color-scheme:dark){:root{--bg:#14171a;--c:#1f2429;--t:#eceff2;--m:#9aa5b1;--b:#323a42}}
+*{box-sizing:border-box}body{margin:0;font:16px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--t)}
+header{position:sticky;top:0;background:var(--a);color:#fff;padding:10px 16px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;z-index:5}
+header b{font-size:17px}.pill{background:rgba(255,255,255,.2);border-radius:99px;padding:2px 10px;font-size:13px}
+main{max-width:680px;margin:0 auto;padding:16px}
+.card{background:var(--c);border:1px solid var(--b);border-radius:12px;padding:16px;margin-bottom:14px}
+h2{margin:0 0 8px;font-size:18px}.q{margin-bottom:18px}.q>label,.q>.l{display:block;font-weight:600;margin-bottom:6px}
+.opt{display:flex;gap:8px;align-items:center;padding:4px 0}.opt input{width:20px;height:20px}
+.sc{display:flex;gap:6px;flex-wrap:wrap}.sc label{border:1px solid var(--b);border-radius:8px;padding:6px 12px;cursor:pointer}
+.sc input{display:none}.sc input:checked+span{font-weight:700;color:var(--a)}.sc label:has(input:checked){border-color:var(--a)}
+select,textarea,input[type=text]{width:100%;padding:10px;border:1px solid var(--b);border-radius:8px;background:var(--c);color:var(--t);font:inherit}
+button{background:var(--a);color:#fff;border:0;border-radius:8px;padding:12px 18px;font:600 16px inherit;cursor:pointer}
+button.s{background:var(--m);padding:6px 12px;font-size:13px}button:disabled{opacity:.5}
+.small{font-size:13px;color:var(--m)}.hid{display:none!important}
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
+#modal .card{max-width:380px;width:100%}
+.st{display:inline-block;border-radius:6px;padding:1px 8px;font-size:12px;color:#fff}.enviada{background:var(--ok)}.pendiente{background:var(--w)}
+#log div{display:flex;justify-content:space-between;border-bottom:1px solid var(--b);padding:6px 0;font-size:14px}
+#toast{padding:10px;border-radius:8px;margin-bottom:12px;color:#fff;background:var(--ok)}
+</style></head><body>
+<div id="modal"><div class="card"><h2>Datos del encuestador</h2>
+<p class="small">Escriba su nombre. Quedará visible y se guardará con cada respuesta.</p>
+<input type="text" id="enc" placeholder="Nombre y apellido" autocomplete="name">
+<p><button id="okEnc">Comenzar</button></p></div></div>
+
+<header><b>🏋️ Diagnóstico del Gimnasio</b>
+<span><span class="pill" id="encTag"></span> <span class="pill" id="net"></span> <button class="s" id="chg">Cambiar</button></span></header>
+<main>
+<div class="card" id="consent"><h2>Consentimiento informado</h2>
+<p><b>Finalidad:</b> conocer la percepción de usuarios sobre los servicios del gimnasio para elaborar un diagnóstico. <b>Uso académico:</b> los datos se emplean solo en un trabajo académico. <b>Participación voluntaria:</b> puede negarse a responder o retirarse en cualquier momento sin consecuencia alguna.</p>
+<h2>Confidencialidad</h2>
+<p>Toda la información es confidencial y se utilizará únicamente con fines académicos, de conformidad con la Ley Orgánica de Protección de Datos Personales (LOPDP), Registro Oficial, Quinto Suplemento N° 459, del 26 de mayo de 2021, del Ecuador.</p>
+<label class="opt"><input type="checkbox" id="acc"> <span>He leído y acepto participar voluntariamente.</span></label>
+<label class="opt"><input type="checkbox" id="geo"> <span>(Opcional) Autorizo registrar mi ubicación aproximada.</span></label>
+<p class="small" id="geoMsg"></p>
+<button id="go" disabled>Continuar a la encuesta</button></div>
+
+<form id="f" class="card hid"></form>
+<div id="toast" class="hid"></div>
+<div class="card"><h2>Estado de sincronización</h2>
+<p class="small" id="sum"></p><div id="log"></div>
+<p><button class="s" id="sync">Sincronizar ahora</button></p></div>
+</main>
+<script>
+const ENDPOINT='PEGAR_AQUI_URL_DE_APPS_SCRIPT';
+const SC5=['1','2','3','4','5'];
+const Q=[
+['edad','Rango de edad','sel',['15-19','20-29','30-39','40-49','50+']],
+['sexo','Sexo','rad',['Femenino','Masculino','Prefiero no decir']],
+['tipo','¿Es usted socio del gimnasio?','rad',['Socio actual','Ex socio','No socio']],
+['frec','Días de asistencia por semana','sel',['Menos de 1','1-2','3-4','5 o más']],
+['obj','Objetivo principal','sel',['Bajar de peso','Ganar masa muscular','Salud general','Rendimiento deportivo','Socializar']],
+['hor','Horario preferido','sel',['Mañana (5-11h)','Mediodía (11-15h)','Tarde (15-19h)','Noche (19-22h)']],
+['sat','Satisfacción general (1 = muy baja, 5 = muy alta)','esc',SC5],
+['lim','Limpieza e higiene','esc',SC5],
+['equ','Calidad y disponibilidad de equipos','esc',SC5],
+['per','Atención de entrenadores y personal','esc',SC5],
+['pre','El precio es justo para el servicio','esc',SC5],
+['serv','Servicios que le gustaría agregar','chk',['Clases grupales','Nutrición','Piscina/sauna','Entrenador personal','Más parqueadero','Horario extendido']],
+['rec','Probabilidad de recomendarlo (0-10)','esc',[...Array(11).keys()].map(String)],
+['com','Comentarios o sugerencias','txt']];
+const $=id=>document.getElementById(id),K='gym_queue',N='gym_enc';
+const load=()=>{try{return JSON.parse(localStorage.getItem(K))||[]}catch(e){return[]}};
+const save=q=>{try{localStorage.setItem(K,JSON.stringify(q))}catch(e){alert('Almacenamiento lleno')}};
+let enc=localStorage.getItem(N)||'',pos=null,busy=false;
+// Render
+$('f').innerHTML=Q.map(([k,t,ty,o],i)=>{let h=`<div class="q"><span class="l">${i+1}. ${t}</span>`;
+if(ty=='sel')h+=`<select name="${k}" required><option value="">Seleccione…</option>${o.map(x=>`<option>${x}</option>`).join('')}</select>`;
+if(ty=='rad')h+=o.map(x=>`<label class="opt"><input type="radio" name="${k}" value="${x}" required>${x}</label>`).join('');
+if(ty=='esc')h+=`<div class="sc">${o.map(x=>`<label><input type="radio" name="${k}" value="${x}" required><span>${x}</span></label>`).join('')}</div>`;
+if(ty=='chk')h+=o.map(x=>`<label class="opt"><input type="checkbox" name="${k}" value="${x}">${x}</label>`).join('');
+if(ty=='txt')h+=`<textarea name="${k}" rows="3" maxlength="500"></textarea>`;
+return h+'</div>'}).join('')+'<button type="submit">Guardar respuesta</button>';
+// Encuestador
+function showEnc(){$('encTag').textContent='👤 '+enc;$('modal').classList.add('hid')}
+if(enc)showEnc();
+$('okEnc').onclick=()=>{const v=$('enc').value.trim();if(v.length<3)return alert('Ingrese el nombre');enc=v;localStorage.setItem(N,v);showEnc()};
+$('chg').onclick=()=>{$('enc').value=enc;$('modal').classList.remove('hid')};
+// Consentimiento y ubicación
+$('acc').onchange=()=>$('go').disabled=!$('acc').checked;
+$('geo').onchange=()=>{pos=null;$('geoMsg').textContent='';if(!$('geo').checked)return;
+if(!navigator.geolocation){$('geoMsg').textContent='Su dispositivo no admite ubicación.';return $('geo').checked=false}
+$('geoMsg').textContent='Solicitando ubicación…';
+navigator.geolocation.getCurrentPosition(p=>{pos=p.coords;$('geoMsg').textContent='Ubicación registrada.'},
+()=>{$('geoMsg').textContent='No se otorgó la ubicación; la encuesta continúa sin ella.';$('geo').checked=false},{timeout:10000,maximumAge:60000})};
+$('go').onclick=()=>{$('consent').classList.add('hid');$('f').classList.remove('hid');scrollTo(0,0)};
+// Enviar / guardar
+$('f').onsubmit=e=>{e.preventDefault();const fd=new FormData($('f')),a={};
+Q.forEach(([k])=>a[k]=fd.getAll(k).join('; '));
+const r={id:'r'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),fecha:new Date().toISOString(),
+enc,lat:pos?pos.latitude:'',lng:pos?pos.longitude:'',cons:'Sí',a,estado:'pendiente'};
+const q=load();q.push(r);save(q);           // 1) siempre se guarda primero en el dispositivo
+$('f').reset();$('f').classList.add('hid');$('consent').classList.remove('hid');
+$('acc').checked=false;$('geo').checked=false;$('go').disabled=true;$('geoMsg').textContent='';pos=null;
+toast(navigator.onLine?'Respuesta guardada. Enviando…':'Sin conexión: guardada en el dispositivo, pendiente de sincronizar.');
+render();sync()};
+function toast(m){const t=$('toast');t.textContent=m;t.classList.remove('hid');setTimeout(()=>t.classList.add('hid'),5000)}
+// Sincronización
+async function sync(){if(busy||!navigator.onLine||ENDPOINT.startsWith('PEGAR'))return render();busy=true;
+for(const r of load().filter(x=>x.estado!='enviada')){
+try{const ctrl=new AbortController();setTimeout(()=>ctrl.abort(),15000);
+await fetch(ENDPOINT,{method:'POST',mode:'no-cors',signal:ctrl.signal,headers:{'Content-Type':'text/plain'},body:JSON.stringify({...r,headers:Q.map(x=>x[0])})});
+const q=load();const i=q.findIndex(x=>x.id==r.id);if(i>-1){q[i].estado='enviada';save(q)}render()}
+catch(e){break}}   // si falla, queda pendiente y se reintenta
+busy=false;render()}
+function render(){const q=load(),p=q.filter(x=>x.estado!='enviada').length;
+$('net').textContent=navigator.onLine?'🟢 En línea':'🔴 Sin conexión';
+$('sum').textContent=`Total: ${q.length} · Enviadas: ${q.length-p} · Pendientes: ${p}`+(ENDPOINT.startsWith('PEGAR')?' · (Falta configurar ENDPOINT)':'');
+$('log').innerHTML=q.slice().reverse().slice(0,15).map(x=>`<div><span>${x.id} · ${new Date(x.fecha).toLocaleString()}</span><span class="st ${x.estado}">${x.estado=='enviada'?'Enviada':'Pendiente de sincronización'}</span></div>`).join('')}
+addEventListener('online',()=>{render();sync()});addEventListener('offline',render);
+$('sync').onclick=sync;setInterval(sync,30000);render();sync();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script></body></html>
